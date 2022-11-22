@@ -6,11 +6,15 @@ import com.tm.reggie.DTO.SetmealDto;
 import com.tm.reggie.common.R;
 import com.tm.reggie.entity.Category;
 import com.tm.reggie.entity.Setmeal;
+import com.tm.reggie.entity.SetmealDish;
 import com.tm.reggie.service.CategoryService;
+import com.tm.reggie.service.SetmealDishService;
 import com.tm.reggie.service.SetmealService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,6 +30,9 @@ public class SetmealController {
     @Autowired
     private CategoryService categoryService;
 
+    @Autowired
+
+    private SetmealDishService setmealDishService;
     /**
      * 套餐分页查询
      *
@@ -72,6 +79,7 @@ public class SetmealController {
      * @return
      */
     @PostMapping
+    @CacheEvict(value = "setmealCache",allEntries = true)
     public R<String> save(@RequestBody SetmealDto setmealDto) {
         setmealService.saveWithDish(setmealDto);
         return R.success("新增成功");
@@ -84,6 +92,7 @@ public class SetmealController {
      * @return
      */
     @DeleteMapping
+    @CacheEvict(value = "setmealCache",allEntries = true)
     public R<String> delete(@RequestParam List<Long> ids) {
         setmealService.removeWithDish(ids);
         return R.success("删除成功");
@@ -94,6 +103,7 @@ public class SetmealController {
      * @return
      */
     @GetMapping("/list")
+    @Cacheable(value = "setmealCache",key="#setmeal.categoryId+'_'+#setmeal.status")
     public R<List<Setmeal>> list(Setmeal setmeal) {
         LambdaQueryWrapper<Setmeal> setmealLambdaQueryWrapper = new LambdaQueryWrapper<>();
         setmealLambdaQueryWrapper.eq(setmeal.getCategoryId() != null, Setmeal::getCategoryId, setmeal.getCategoryId());
@@ -102,5 +112,41 @@ public class SetmealController {
 
         List<Setmeal> list = setmealService.list(setmealLambdaQueryWrapper);
         return R.success(list);
+    }
+
+    /**
+     * 回显，根据id查询
+     * @return
+     */
+    @GetMapping("/{id}")
+    public R<SetmealDto> get(@PathVariable Long id){
+        //创建setmealDto
+        SetmealDto setmealDto = new SetmealDto();
+        //查询套餐信息
+        Setmeal setmeal = setmealService.getById(id);
+        //复制给DTO
+        BeanUtils.copyProperties(setmeal,setmealDto);
+        //查询套餐详细信息
+        LambdaQueryWrapper<SetmealDish> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(SetmealDish::getSetmealId,id);
+        List<SetmealDish> dishList = setmealDishService.list(queryWrapper);
+        //查询套餐分类名
+        Category category = categoryService.getById(setmeal.getCategoryId());
+        //赋给创建setmealDto
+        setmealDto.setSetmealDishes(dishList);
+        setmealDto.setCategoryName(category.getName());
+        return R.success(setmealDto);
+    }
+
+    /**
+     * 修改套餐
+     * @param setmealDto
+     * @return
+     */
+    @PutMapping
+    @CacheEvict(value = "setmealCache",allEntries = true)
+    public R<String> update(@RequestBody SetmealDto setmealDto){
+        setmealService.updateWithDish(setmealDto);
+        return R.success("修改成功");
     }
 }

@@ -1,5 +1,7 @@
 package com.tm.reggie.controller;
 
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tm.reggie.DTO.DishDto;
@@ -14,9 +16,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @RestController
@@ -31,6 +36,9 @@ public class DishController {
 
     @Autowired
     private DishFlavorService dishFlavorService;
+
+    @Autowired
+    private RedisTemplate redisTemplate;
 
     /**
      * 菜品分页查询
@@ -88,6 +96,8 @@ public class DishController {
     @PostMapping
     public R<String> save(@RequestBody DishDto dishDto){
         dishService.saveWithFlavor(dishDto);
+        //清理redis菜品缓存
+        clearRedis(dishDto.getCategoryId());
         return R.success("新增成功");
     }
 
@@ -99,7 +109,19 @@ public class DishController {
     @PutMapping
     public R<String> update(@RequestBody DishDto dishDto){
         dishService.updateWithFlavor(dishDto);
+        //清理redis菜品缓存
+        clearRedis(dishDto.getCategoryId());
         return R.success("修改成功");
+    }
+
+    /**
+     * //清理redis菜品缓存
+     * @param categoryId
+     */
+    private void clearRedis(Long categoryId) {
+        String key = "dish_" + categoryId +"_"+ 1;
+        redisTemplate.delete(key);
+        log.info("已清除redis:{}",key);
     }
 
     /**
@@ -121,6 +143,17 @@ public class DishController {
      */
     @GetMapping("/list")
     public R<List<DishDto>> list(Dish dish){
+        List<DishDto> dishDtoList = null;
+        String key = "dish_" + dish.getCategoryId() + "_" + dish.getStatus();
+        //从redis中查找数据
+        String value = (String) redisTemplate.opsForValue().get(key);
+        dishDtoList = (List<DishDto>)JSONArray.parse(value);
+        //判断是否存在
+        if(dishDtoList != null)
+            //存在则直接返回，否则从数据库查询并放入redis
+            return R.success(dishDtoList);
+
+
         //条件构造器
         LambdaQueryWrapper<Dish> dishLambdaQueryWrapper = new LambdaQueryWrapper<>();
         //分类条件
@@ -134,7 +167,7 @@ public class DishController {
         //查询
         List<Dish> list = dishService.list(dishLambdaQueryWrapper);
 
-        List<DishDto> collect = list.stream().map((item) -> {
+        dishDtoList = list.stream().map((item) -> {
             DishDto dishDto = new DishDto();
 
             BeanUtils.copyProperties(item,dishDto);
@@ -155,6 +188,8 @@ public class DishController {
             dishDto.setFlavors(dishFlavorList);
             return dishDto;
         }).collect(Collectors.toList());
-        return R.success(collect);
+        //放入redis
+        redisTemplate.opsForValue().set(key, JSONObject.toJSONString(dishDtoList),60, TimeUnit.MINUTES);
+        return R.success(dishDtoList);
     }
 }

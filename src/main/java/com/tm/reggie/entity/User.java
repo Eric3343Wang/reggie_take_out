@@ -1,5 +1,8 @@
 package com.tm.reggie.entity;
 
+import com.alibaba.fastjson.annotation.JSONField;
+import com.alibaba.fastjson.serializer.SerializerFeature;
+import com.tm.reggie.enums.SexEnum;
 import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.Date;
@@ -27,7 +30,8 @@ public class User implements Serializable {
 
 
     //性别 0 女 1 男
-    private String sex;
+    @JSONField(serialzeFeatures= SerializerFeature.WriteEnumUsingToString)
+    private SexEnum sex;
 
 
     //身份证号

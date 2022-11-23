@@ -46,7 +46,6 @@ public class DishController {
      */
     @GetMapping("/page")
     public R<Page> page(int page,int pageSize,String name){
-        log.info("当前页：{}，每页条数：{}，名称条件：{}",page,pageSize,name);
         //分页构造器
         Page<Dish> dishPage = new Page<>(page, pageSize);
         //为了获取菜品分类名称，创建一个page,并将属性复制
@@ -192,4 +191,6 @@ public class DishController {
         redisTemplate.opsForValue().set(key, JSONObject.toJSONString(dishDtoList),60, TimeUnit.MINUTES);
         return R.success(dishDtoList);
     }
+
+
 }

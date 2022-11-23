@@ -1,5 +1,7 @@
 package com.tm.reggie.entity;
 
+import com.alibaba.fastjson.annotation.JSONField;
+import com.alibaba.fastjson.serializer.SerializerFeature;
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableField;
 import lombok.Data;
@@ -21,6 +23,7 @@ public class Employee implements Serializable {
 
     private String phone;
 
+    @JSONField(serialzeFeatures= SerializerFeature.WriteEnumUsingToString)
     private String sex;
 
     private String idNumber;

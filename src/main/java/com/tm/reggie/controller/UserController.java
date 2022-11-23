@@ -85,6 +85,7 @@ public class UserController {
 
             return R.success(user);
         }
+        User user = new User();
         return R.error("登陆失败");
     }
 }

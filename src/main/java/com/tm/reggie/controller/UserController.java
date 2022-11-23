@@ -46,7 +46,7 @@ public class UserController {
             //SMSUtils.sendMessage("瑞吉外卖","",phone,code);
             //将生成得验证码保存到redis中
             redisTemplate.opsForValue().set(phone+"_code",code,5, TimeUnit.MINUTES);
-            return R.success("验证码发送成功"+code+102);
+            return R.success("验证码发送成功"+code+"_"+102);
         }
         return R.error("短信发送失败");
     }
